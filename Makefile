@@ -1,13 +1,16 @@
 CC = gcc
-CFLAGS = -Wall -Wextra --std=99
+CFLAGS = -Wall -Wextra --std=c99
 LFLAGS = -lraylib -lm -lGL
-OBJS =
+OBJS = lsp-client.o lsp-server.o
 
 .c.o :
 	${CC} ${CFLAGS} -c $? -o $@ ${LFLAGS}
 
-game : ${OBJS}
-	${CC} ${CFLAGS} -o $@ ${OBJS} ${LFLAGS}
+client : lsp-client.o 
+	${CC} ${CFLAGS} -o $@ lsp-client.o ${LFLAGS}
+
+server : lsp-server.o
+	${CC} ${CFLAGS} -o $@ lsp-server.o -lm
 
 clean :
 	rm *.o
