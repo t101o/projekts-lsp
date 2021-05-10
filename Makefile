@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra --std=c99
-LFLAGS = -lraylib -lm -lGL
+LFLAGS = -lraylib -lm -lGL -lpthread
 OBJS = lsp-client.o lsp-server.o
 
 .c.o :
