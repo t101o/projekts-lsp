@@ -33,14 +33,14 @@ void generate_map() {
 	int yy = 2;
 	for(int y = 0; y < 13; y++) {
 		for(int x = 0; x < 15; x++) {
-			if (y == 0 || x == 0 || (x%2 == 0 && y%2 == 0) || x == 14 || y == 12) map[x][y] = '#';
-			else map[x][y] = '-';
+			if (y == 0 || x == 0 || (x%2 == 0 && y%2 == 0) || x == 14 || y == 12) map[x][y] = 0x01;
+			else map[x][y] = 0x00;
 			r = rand() % 6;
 
-			if (r == 1) Q = '1';
-			else if (r == 2) Q = '2';
-			else if (r == 3) Q = '3';
-			else Q = '0';
+			if (r == 1) Q = 0x04;
+			else if (r == 2) Q = 0x05;
+			else if (r == 3) Q = 0x06;
+			else Q = 0x07;
 
 
 			if ((y == 1 || y == 11) && ((x > 2 && x < 12) && x%2 == 0)) map[x][y] = Q;
