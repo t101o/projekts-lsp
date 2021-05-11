@@ -193,7 +193,7 @@ int player_connect() {
     memset(buff, 0, 1024);
     generate_map();
     packetOut_sendMap(new_socket);
-    sleep(5);
+    //    sleep(5);
     }
     return 0;
 	//valread = read(new_socket, buffer, 1024);

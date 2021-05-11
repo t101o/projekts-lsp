@@ -12,8 +12,8 @@
 #include "packets.h"
 
 #define PORT 1234
-#define SCREEN_WIDTH 640
-#define SCREEN_HEIGHT 480
+#define SCREEN_WIDTH 480
+#define SCREEN_HEIGHT 416
 
 struct player {
   Rectangle rectangle;
@@ -33,7 +33,7 @@ union packet_player_id_union p_id;
 union packet_player_input_union player1_input = {0xff00, 0x01, 0, 0, 0, 0};
 union packet_client_chat_msg_union ccm;
 
-/* packets which are being reveived */
+/* packets which are being received */
 union packet_server_id_union s_id;
 union packet_game_field_state_union gfs;
 union packet_moveable_obj_update_union mou;
@@ -50,6 +50,27 @@ struct player player3;
 struct player player4;
 char map[13 * 15];
 int server_socket;
+
+void DrawMap(Texture2D textures, Rectangle floor, Rectangle wall, Rectangle box) {
+  Vector2 pos = {0, -floor.height};
+  for (int i = 0; i < FIELD_WIDTH * FIELD_HEIGHT; ++i) {
+
+    if (i % FIELD_WIDTH == 0) {
+      pos.x = 0;
+      pos.y += floor.height;
+    }
+    
+    if (map[i] == 0x00) {
+      DrawTextureRec(textures, floor, pos, WHITE);
+    } else if (map[i] == 0x01) {
+      DrawTextureRec(textures, wall, pos, WHITE);
+    } else if (map[i] == 0x02) {
+      DrawTextureRec(textures, box, pos, WHITE);
+    }
+    pos.x += floor.width;
+    //DrawTextureRec(textures, player1.rectangle, player1.position, WHITE);
+  }
+}
 
 void *networking() {
   // For testing purposes
@@ -69,13 +90,13 @@ void *networking() {
 	perror("*ERROR*");
 	exit(EXIT_FAILURE);
       } else if (read_status > 0) {
-	printf("%u\n", buff[1]);
+	//printf("%u\n", buff[1]);
 	//if (buff[0] == 0xff && buff[1] == 0x00) {
 	if (buff[2] == 0x80) {
 	  memcpy(s_id.arr, buff, sizeof(s_id));
 	  if (s_id.pack.is_accepted == 1) {
-	    player1.position.x = 0.0f;
-	    player1.position.y = 0.0f;
+	    player1.position.x = 32;
+	    player1.position.y = 32;
 	  } else if (s_id.pack.is_accepted == 2) {
 	    player1.position.x = SCREEN_WIDTH;
 	    player1.position.y = 0.0f;
@@ -89,13 +110,14 @@ void *networking() {
 	} else if (buff[2] == 0x81) {
 	  memcpy(gfs.arr, buff, sizeof(gfs));
 	  sgfs = gfs.pack;
-	  printf("Printing map\n");
+	  /*  printf("Printing map\n");
 	  for (int i = 0; i < FIELD_HEIGHT * FIELD_WIDTH; ++i) {
 	    printf("%x ", sgfs.block_id[i]);
-	    if (i % FIELD_WIDTH == 0) {
+	    if (i != 0 && i % (FIELD_WIDTH-1) == 0) {
 	      printf("\n");
 	    }
-	  }
+	    }*/
+	  memcpy(map, gfs.pack.block_id, FIELD_HEIGHT * FIELD_WIDTH);
 	} else if (buff[2] == 0x82) {
 	  memcpy(mou.arr, buff, sizeof(mou));
 	  smou = mou.pack;
@@ -125,7 +147,7 @@ void *networking() {
       }
       memset(buff, 0, 1024);
       write(server_socket, player1_input.arr, sizeof(player1_input));
-      sleep(1);
+      //      sleep(1);
   }
 
 }
@@ -136,10 +158,14 @@ void *game() {
 
   float tile_height = textures.height/6;
   float tile_width = textures.width/15;
-
+  
+  Rectangle floor = {0, 0, tile_width, tile_height};
+  Rectangle wall = {10 * tile_width, 5 * tile_height, tile_width, tile_height};
+  Rectangle box = {9 * tile_width, 0, tile_width, tile_height}
+    ;
   /* Player data */
-  player1.position.x = 0.0f;
-  player1.position.y = 0.0f;
+  player1.position.x = 32;
+  player1.position.y = 32;
   player1.rectangle.x = 0.0f;
   player1.rectangle.y = tile_height;
   player1.rectangle.width = tile_width;
@@ -177,6 +203,14 @@ void *game() {
       }*/
 
 
+    for (int i = 0; i < FIELD_WIDTH * FIELD_HEIGHT; ++i) {
+      
+      if (i % (FIELD_WIDTH) == 0) {
+	printf("\n");
+      }
+      printf("%x ", map[i]);
+    }
+    printf("\n");
     /* Packet reveiving */
     /* Some packet sending */
     
@@ -212,6 +246,26 @@ void *game() {
     }
     BeginDrawing();
     ClearBackground(RAYWHITE);
+    /* Draw map */
+    DrawMap(textures, floor, wall, box);
+    /*   Vector2 pos = {0, 0};
+  for (int i = 0; i < FIELD_WIDTH * FIELD_HEIGHT; ++i) {
+
+    if (i % (FIELD_WIDTH) == 0) {
+      pos.x = 0;
+      pos.y += floor.height;
+    }
+    
+    if (map[i] == 0x00) {
+      DrawTextureRec(textures, floor, pos, WHITE);
+    } else if (map[i] == 0x01) {
+      DrawTextureRec(textures, wall, pos, WHITE);
+    } else if (map[i] == 0x02) {
+      DrawTextureRec(textures, box, pos, WHITE);
+    }
+    pos.x += floor.width;
+    //DrawTextureRec(textures, player1.rectangle, player1.position, WHITE);
+    }*/
     DrawTextureRec(textures, player1.rectangle, player1.position, WHITE);
     DrawTextureRec(textures, player2.rectangle, player2.position, WHITE);
     /*DrawTextureRec(textures, player3.rectangle, player3.position, WHITE);
