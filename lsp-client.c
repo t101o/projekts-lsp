@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include "packets.h"
+
 #define PORT 1234
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
@@ -30,22 +32,38 @@ void *networking() {
   
   while (1) {
     char msg[256];
-    char buff[1024];
+    unsigned char buff[1024];
     //fgets(msg, 256, stdin);
-    if (write(server_socket, "Hello, server!\n", strlen("Hello, server!\n")) == -1) {
+    /*   if (write(server_socket, "Hello, server!\n", strlen("Hello, server!\n")) == -1) {
 	perror("*ERROR*");
 	exit(EXIT_FAILURE);
       }
-
+    */
       int read_status;
+      union packet_ping_union pingu;
       read_status = read(server_socket, buff, 1024);
       if (read_status == -1) {
 	perror("*ERROR*");
 	exit(EXIT_FAILURE);
       } else if (read_status > 0) {
-	fprintf(stdout, "%s\n", buff);
+	printf("%u\n", buff[1]);
+	//if (buff[0] == 0xff && buff[1] == 0x00) {
+	  if (buff[3] == 0x85) {
+	    
+	    struct packet_ping ping;
+	    memcpy(pingu.arr, buff, sizeof(pingu));
+	    ping = pingu.pack;
+	    //ping.type = ntohs(ping.type);
+	    //decode_packet_ping(buff, &ping);
+	    printf("PING %x %x!\n", ping.type, pingu.arr[3]);
+	    memset(buff, 0, 1024);
+	    //unsigned char *temp = encode_packet_ping(buff, &ping);
+	    write(server_socket, pingu.arr, sizeof(pingu));
+	  }
 	memset(buff, 0, 1024);
+	// }
       }
+      sleep(1);
   }
 
 }

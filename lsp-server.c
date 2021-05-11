@@ -91,12 +91,22 @@ void player_connect() {
         exit(EXIT_FAILURE);
     }
     while (1) {
-    valread = read(new_socket, buffer, 1024);
-    printf("%s\n", buffer);
-    send(new_socket , hello , strlen(hello) , 0 );
-    printf("Hello message sent\n");
+      //valread = read(new_socket, buffer, 1024);
+      //printf("%s\n", buffer);
+      union packet_ping_union pingu;
+    struct packet_ping ping;
+    ping.start = 0xff00;
+    ping.type = 0x85;
+    ping.checksum = ping.start ^ ping.type;
+    pingu.pack = ping;
+    unsigned char buff[1024];
+    memcpy(buff, pingu.arr, sizeof(pingu)); 
+    //unsigned char *temp = encode_packet_ping(buff, &ping);
+    send(new_socket , buff , sizeof(pingu) , 0 );
+    printf("Hello message sent %x\n", pingu.pack.type);
     // After using buffer, it needs to be cleared
-    memset(buffer, 0, 1024);
+    memset(buff, 0, 1024);
+    sleep(1);
     }
     return 0;
 }

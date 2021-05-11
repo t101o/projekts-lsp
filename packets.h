@@ -86,6 +86,8 @@ unsigned char *packet_decode(unsigned char *packet, size_t size) {
   return packet_decoded;
 }
 
+
+
 /* Client->Server packets */
 /* Player identification packet
    packet_id 0x00
@@ -96,6 +98,11 @@ struct packet_player_id {
   char player_name[32];
   char player_color;
   char checksum;
+};
+
+union packet_player_id_union {
+  unsigned char arr[sizeof(struct packet_player_id)];
+  struct packet_player_id pack;
 };
 
 /* Player input packet
@@ -110,6 +117,11 @@ struct packet_player_input {
   char checksum;
 };
 
+union packet_player_input_union {
+  unsigned char arr[sizeof(struct packet_player_input)];
+  struct packet_player_input pack;
+};
+
 /* Chat message packet
    packet_id 0x02
 */
@@ -120,8 +132,10 @@ struct packet_client_chat_msg {
   char checksum;
 };
 
-/* Ping packet
-*/
+union packet_client_chat_msg_union {
+  unsigned char arr[sizeof(struct packet_client_chat_msg)];
+  struct packet_client_chat_msg pack;
+};
 
 /* Server->Client packets */
 
@@ -138,6 +152,11 @@ struct packet_server_id {
   char checksum;
 };
 
+union packet_server_id_union {
+  unsigned char arr[sizeof(struct packet_server_id)];
+  struct packet_server_id pack;
+};
+
 /* Game field state packet.
    packet_id 0x81
 */
@@ -148,6 +167,11 @@ struct packet_game_field_state {
   unsigned char height; /* 13 */
   unsigned char block_id[FIELD_HEIGHT * FIELD_WIDTH];
   char checksum;
+};
+
+union packet_game_field_state_union {
+  unsigned char arr[sizeof(struct packet_game_field_state)];
+  struct packet_game_field_state pack;
 };
 
 /* Moveable object update packet
@@ -165,6 +189,11 @@ struct packet_moveable_obj_update {
   char checksum;
 };
 
+union packet_moveable_obj_update_union {
+  unsigned char arr[sizeof(struct packet_moveable_obj_update)];
+  struct packet_moveable_obj_update pack;
+};
+
 /* Server chat message packet
    packet_id 0x83
 */
@@ -174,6 +203,11 @@ struct packet_server_chat_msg {
   unsigned char msg_type;
   char msg[256];
   char checksum;
+};
+
+union packet_server_chat_msg_union {
+  unsigned char arr[sizeof(struct packet_server_chat_msg)];
+  struct packet_server_chat_msg pack;
 };
 
 /* Player information packet
@@ -191,8 +225,40 @@ struct packet_player_info {
   char checksum;
 };
 
+union packet_player_info_union {
+  unsigned char arr[sizeof(struct packet_player_info)];
+  struct packet_player_info pack;
+};
+  
 struct packet_ping {
   unsigned short start;
   unsigned char type;
   char checksum;
 };
+
+union packet_ping_union {
+  unsigned char arr[sizeof(struct packet_ping)];
+  struct packet_ping pack;
+};
+/*
+unsigned char *encode_packet_ping(unsigned char *buff,
+				  struct packet_ping *pack) {
+  buff[0] = (unsigned char) (pack->start);
+  printf("encoding %u\n", buff[0]);
+  buff[1] = (unsigned char) (pack->start);
+  buff[2] = pack->type;
+  buff[3] = (unsigned char) pack->checksum;
+
+  return buff + 4;
+}
+
+unsigned char *decode_packet_ping(unsigned char *buff,
+				  struct packet_ping *pack) {
+  pack->start = (unsigned short) (buff[0] << 2);
+  pack->start = (unsigned short) (pack->start | buff[1]);
+  pack->type = buff[2];
+  pack->checksum = (char) buff[3];
+
+  return NULL;
+}
+*/
