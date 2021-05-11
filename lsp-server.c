@@ -66,31 +66,43 @@ void packetOut_indentify() {
 }
 
 
-void packetOut_sendMap(int new_socket, struct packet_game_field_state pgfs) {
+void packetOut_sendMap(int new_socket) {
+	unsigned char buff[1024];
+	union packet_game_field_state_union pgfsu;
+	struct packet_game_field_state pgfs;
 	char bid = '\0';
-	char xx = '\0';
-	char yy = '\0';
-	char mapPacket[6] = {0};
-	mapPacket[0] = 0xff;
-	mapPacket[1] = 0x00;
-	mapPacket[2] = 0x81;
+	//char xx = '\0';
+	int xx = 0;
+	//char yy = '\0';
+	pgfs.start = 0xff00;
+	pgfs.type = 0x81;
+	pgfs.width = 15;
+	pgfs.height = 13;
+	pgfs.checksum = pgfs.width ^ pgfs.height;
 	for(int y = 0; y < 13; y++) {
 		for(int x = 0; x < 15; x++) {
-			xx = x;
-			yy = y;
-			bid = map[x][y];
+
+			//xx = x;
+			//yy = y;
+
+			//bid = map[x][y];
 			//pgfs = {yy, xx, bid};
-			pgfs.width = yy;
-			pgfs.height = xx;
+
 			//memcpy(pgfs.block_id, bid, 2);
-			pgfs.block_id = bid;
-			mapPacket[3] = pgfs.width;
-			mapPacket[4] = pgfs.height;
-			mapPacket[5] = pgfs.block_id;
-			send(new_socket, mapPacket, strlen(mapPacket), 0);
+			if (map[x][y] == 0x00) pgfs.block_id[xx] = 0x00;
+			else if (map[x][y] == 0x01) pgfs.block_id[xx] = 0x01;
+			else pgfs.block_id[xx] = 0x02;
+
+			pgfs.checksum ^= pgfs.block_id[xx];
+			xx++;
 		}
 	}
-
+	pgfsu.pack = pgfs;
+	memcpy(buff, pgfsu.arr, sizeof(pgfsu));
+	send(new_socket, buff, sizeof(pgfsu), 0);
+	printf("Map fragment sent!\n");
+	memset(buff, 0, 1024);
+	return;
 	//send(new_socket , hello , strlen(hello) , 0 );
 }
 
@@ -163,7 +175,25 @@ int player_connect() {
 			perror("accept");
 			exit(EXIT_FAILURE);
 	}
-
+	while (1) {
+      //valread = read(new_socket, buffer, 1024);
+      //printf("%s\n", buffer);
+    union packet_ping_union pingu;
+    struct packet_ping ping;
+    ping.start = 0xff00;
+    ping.type = 0x85;
+    ping.checksum = ping.start ^ ping.type;
+    pingu.pack = ping;
+    unsigned char buff[1024];
+    memcpy(buff, pingu.arr, sizeof(pingu));
+    //unsigned char *temp = encode_packet_ping(buff, &ping);
+    send(new_socket , buff , sizeof(pingu) , 0 );
+    printf("Hello message sent %x\n", pingu.pack.type);
+    // After using buffer, it needs to be cleared
+    memset(buff, 0, 1024);
+    sleep(1);
+    }
+    return 0;
 	//valread = read(new_socket, buffer, 1024);
 	return 0;
 	/*
