@@ -16,9 +16,10 @@
 
 #include "packets.h"
 
-#define PORT 1234
+#define PORT 8880
 
 char map[15][13];
+float PlayerLocation[4][3];
 
 
 int timer(int type) {
@@ -53,12 +54,41 @@ void generate_map() {
 
 
 
-void unpack() {
+void unpack(int new_socket) {
 
 }
 
 void packetIn_sort(int new_socket) {
 
+}
+
+void packetIn_identifyMovement(int new_socket) {
+	union packet_player_input_union ppiu;
+	struct packet_player_input ppi
+	char buff[1024] = {0};
+	read(new_socket, buff, 1024);
+	memcpy(ppiu, buff, sizeof(buff));
+	
+}
+
+void packetOut_playerLocation(int new_socket, int playerId) {
+	unsigned char buff[1024];
+	union packet_moveable_obj_update_union pmouu;
+	struct packet_moveable_obj_update pmou;
+	pmou.start = 0xff00;
+	pmou.type = 0x82;
+	pmou.obj_id = 0x00;
+	pmou.x = PlayerLocation[0][1];
+	pmou.y = PlayerLocation[0][2];
+	pmou.direction = 1;
+	pmou.status = 2;
+	pmou.checksum = pmou.start ^ pmou.type ^ pmou.obj_id ^ pmou.direction ^ pmou.status;
+	pmouu.pack = pmou;
+
+	memcpy(buff, pmouu.arr, sizeof(pmouu));
+	send(new_socket, buff, sizeof(pmouu), 0);
+	printf("Map fragment sent!\n");
+	memset(buff, 0, 1024);
 }
 
 void packetOut_indentify() {
@@ -127,6 +157,10 @@ void packetOut_playerStats() {
 
 }
 
+void packetOut_playerInfo(int new_socket) {
+
+}
+
 int playerAlive() {
 
 }
@@ -169,12 +203,39 @@ int player_connect() {
 			perror("listen");
 			exit(EXIT_FAILURE);
 	}
+
 	if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
 										 (socklen_t*)&addrlen))<0)
 	{
 			perror("accept");
 			exit(EXIT_FAILURE);
 	}
+	/*
+	while(1) {
+		int newPlayerId = 0;
+		int cpidd = 0;
+
+
+		cpidd = fork();
+
+		if (cpidd == 0) {
+			close(server_fd);
+			cpidd = fork();
+			if (cpidd == 0) {
+				packetOut_playerInfo(new_socket);
+				exit(0);
+			}
+			else {
+				wait(NULL);
+				exit(0);
+			}
+		}
+		else close(new_socket);
+
+	}*/
+
+	packetOut_sendMap(new_socket);
+	packetOut_playerLocation(new_socket);
 	while (1) {
       //valread = read(new_socket, buffer, 1024);
       //printf("%s\n", buffer);
@@ -188,14 +249,15 @@ int player_connect() {
     memcpy(buff, pingu.arr, sizeof(pingu));
     //unsigned char *temp = encode_packet_ping(buff, &ping);
     send(new_socket , buff , sizeof(pingu) , 0 );
-    printf("Hello message sent %x\n", pingu.pack.type);
+    printf("Ping sent %x\n", pingu.pack.type);
     // After using buffer, it needs to be cleared
     memset(buff, 0, 1024);
     sleep(1);
-    }
+	}
+
     return 0;
 	//valread = read(new_socket, buffer, 1024);
-	return 0;
+	//return 0;
 	/*
 	while (1) {
 	valread = read(new_socket, buffer, 1024);
@@ -274,7 +336,10 @@ int main() {
 
 	for(int y = 0; y < 13; y++) {
 		for(int x = 0; x < 15; x++) {
-			printf("%c ", map[x][y]);
+			if (map[x][y] == 0x00) printf("- ");
+			else if (map[x][y] == 0x01) printf("# ");
+			else printf("2 ");
+			//printf("%c ", map[x][y]);
 		}
 		printf("\n");
 	}
