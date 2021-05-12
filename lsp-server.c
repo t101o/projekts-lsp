@@ -21,6 +21,18 @@
 char map[15][13];
 float PlayerLocation[4][3];
 
+//Packets received
+union packet_player_id_union ppidU;
+union packet_player_input_union ppinputU;
+union packet_client_chat_msg_union pccmU;
+
+
+
+//Packets sent
+union packet_server_id_union psidU;
+union packet_game_field_state_union pgfsU;
+union packet_moveable_obj_update_union pmouU;
+union packet_server_chat_msg_union pscmU;
 
 int timer(int type) {
 
@@ -58,20 +70,37 @@ void unpack(int new_socket) {
 
 }
 
-void packetIn_sort(int new_socket) {
-
-}
-
 void packetIn_identifyMovement(int new_socket) {
-	union packet_player_input_union ppiu;
-	struct packet_player_input ppi
 	char buff[1024] = {0};
+	//union packet_player_input_union ppiu;
+	struct packet_player_input ppi;
+	memcpy(ppinputU.arr, buff, sizeof(buff));
+	ppi = ppinputU.pack;
+
 	read(new_socket, buff, 1024);
-	memcpy(ppiu, buff, sizeof(buff));
-	
+
+
 }
 
 void packetOut_playerLocation(int new_socket, int playerId) {
+	char buff[1024] = {0};
+	struct packet_moveable_obj_update pmou;
+	pmou.start = 0xff00;
+	pmou.type = 0x82;
+	pmou.obj_id = 0x00;
+	pmou.x = PlayerLocation[playerId][0];
+	pmou.y = PlayerLocation[playerId][1];
+	pmou.direction = PlayerLocation[playerId][2];
+	pmou.status = 1;
+	pmou.checksum = pmou.start ^ pmou.type ^ pmou.obj_id ^ pmou.direction ^ pmou.status;
+
+	pmouU.pack = pmou;
+
+	memcpy(buff, pmouU.arr, sizeof(pmouU));
+	send(new_socket, buff, sizeof(pmouU), 0);
+	printf("Map fragment sent!\n");
+	memset(buff, 0, 1024);
+	/*
 	unsigned char buff[1024];
 	union packet_moveable_obj_update_union pmouu;
 	struct packet_moveable_obj_update pmou;
@@ -88,7 +117,7 @@ void packetOut_playerLocation(int new_socket, int playerId) {
 	memcpy(buff, pmouu.arr, sizeof(pmouu));
 	send(new_socket, buff, sizeof(pmouu), 0);
 	printf("Map fragment sent!\n");
-	memset(buff, 0, 1024);
+	memset(buff, 0, 1024);*/
 }
 
 void packetOut_indentify() {
@@ -173,6 +202,83 @@ int abilityPlayerUpdate(int playerId, char Q) {
 
 }
 
+void processMovement(int new_socket, int pId, char vx, char vy, unsigned char dynPut) {
+	int xx = vx;
+	int yy = vy;
+	int locx = PlayerLocation[pId][0];
+	int locy = PlayerLocation[pId][1];
+	if (vx != 0x00) {
+		if (vx > 0) {
+			if (map[locx+1][locy] == 0x00) {
+				PlayerLocation[pId][0] += 1;
+				PlayerLocation[pId][2] = 1;
+			}
+		}
+		else {
+			if (map[locx-1][locy] == 0x00) {
+				PlayerLocation[pId][0] -= 1;
+				PlayerLocation[pId][2] = 3;
+			}
+		}
+	}
+	else if (vy != 0x00) {
+		if (vy > 0) {
+			if (map[locx][locy+1] == 0x00) {
+				PlayerLocation[pId][1] += 1;
+				PlayerLocation[pId][2] = 0;
+			}
+		}
+		else {
+			if (map[locx][locy-1] == 0x00) {
+				PlayerLocation[pId][1] -= 1;
+				PlayerLocation[pId][2] = 2;
+			}
+		}
+	}
+	else PlayerLocation[pId][2] = 0;
+	if (dynPut == 1) {
+
+	}
+
+	packetOut_playerLocation(new_socket, 1);
+
+
+}
+
+void packetIn_sort(int new_socket) {
+	unsigned char buff[1024];
+	int read_status;
+	read_status = read(new_socket, buff, 1024);
+	if (read_status == -1) {
+		perror("*ERROR*");
+		exit(EXIT_FAILURE);
+  } else if (read_status > 0) {
+		if (buff[2] == 0x00) {
+			memcpy(ppidU.arr, buff, sizeof(ppidU));
+
+		}
+		else if (buff[2] == 0x01) {
+			struct packet_player_input ppinput;
+			memcpy(ppinputU.arr, buff, sizeof(ppinputU));
+			ppinput = ppinputU.pack;
+			memset(buff, 0, 1024);
+			processMovement(new_socket, 1, ppinput.velocity_x,  ppinput.velocity_y,  ppinput.dynamite_put);
+		}
+		else if (buff[2] == 0x01) {
+
+		}
+		else if (buff[2] == 0x02) {
+
+		}
+		else if (buff[2] == 0x03) {
+
+		}
+
+
+	}
+	memset(buff, 0, 1024);
+}
+
 int player_connect() {
 	int server_fd, new_socket, valread;
 	struct sockaddr_in address;
@@ -235,10 +341,12 @@ int player_connect() {
 	}*/
 
 	packetOut_sendMap(new_socket);
-	packetOut_playerLocation(new_socket);
+	//packetOut_playerLocation(new_socket, 1);
 	while (1) {
       //valread = read(new_socket, buffer, 1024);
       //printf("%s\n", buffer);
+			//packetOut_playerLocation(new_socket, 1);
+			packetIn_sort(new_socket);
     union packet_ping_union pingu;
     struct packet_ping ping;
     ping.start = 0xff00;
