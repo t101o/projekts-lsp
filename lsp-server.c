@@ -18,8 +18,11 @@
 
 #define PORT 8880
 
+// [4] - seletaja id; [33] - 0=>krasa | 1-32=>nickname
+char playerInfo[4][33];
 char map[15][13];
 float PlayerLocation[4][3];
+int playerCount = 0;
 
 //Packets received
 union packet_player_id_union ppidU;
@@ -186,8 +189,27 @@ void packetOut_playerStats() {
 
 }
 
-void packetOut_playerInfo(int new_socket) {
+void packetOut_playerInfo(int new_socket, char player_name[32], char player_color) {
+	char buff[1024] = {0};
+	struct packet_server_id psid;
+	playerCount+1;
+	int playerId = playerCount;
+	int arrayPId = playerId-1;
+	playerInfo[arrayPId][0] = player_color;
+	for (int x = 1; x < 32; x++) playerInfo[arrayPId][x] = player_name[x];
+	printf("PlayerCount: %d ID: %d", playerCount, playerId);
 
+	psid.start = 0xff00;
+	psid.type = 0x80;
+	psid.protocol_version = 0x00;
+	psid.is_accepted = playerId;
+	psid.checksum = psid.start ^ psid.type ^ psid.protocol_version ^ psid.is_accepted;
+
+	psidU.pack = psid;
+
+	memcpy(buff, psidU.arr, sizeof(psidU));
+	send(new_socket, buff, sizeof(psidU), 0);
+	memset(buff, 0, 1024);
 }
 
 int playerAlive() {
@@ -249,23 +271,28 @@ void packetIn_sort(int new_socket) {
 	unsigned char buff[1024];
 	int read_status;
 	read_status = read(new_socket, buff, 1024);
+	printf("buff: %X", buff[2]);
+	printf("Sort loop!");
 	if (read_status == -1) {
 		perror("*ERROR*");
 		exit(EXIT_FAILURE);
   } else if (read_status > 0) {
 		if (buff[2] == 0x00) {
+			struct packet_player_id ppid;
 			memcpy(ppidU.arr, buff, sizeof(ppidU));
-
+			ppid = ppidU.pack;
+			memset(buff, 0, 1024);
+			printf("CL Id if");
+			packetOut_playerInfo(new_socket, ppid.player_name, ppid.player_color);
 		}
 		else if (buff[2] == 0x01) {
+			printf(" Input if\n");
 			struct packet_player_input ppinput;
 			memcpy(ppinputU.arr, buff, sizeof(ppinputU));
 			ppinput = ppinputU.pack;
 			memset(buff, 0, 1024);
-			processMovement(new_socket, 1, ppinput.velocity_x,  ppinput.velocity_y,  ppinput.dynamite_put);
-		}
-		else if (buff[2] == 0x01) {
-
+			printf("Input %c %c", ppinput.velocity_x, ppinput.velocity_y);
+			processMovement(new_socket, 0, ppinput.velocity_x,  ppinput.velocity_y,  ppinput.dynamite_put);
 		}
 		else if (buff[2] == 0x02) {
 
