@@ -229,7 +229,10 @@ void processMovement(int new_socket, int pId, char vx, char vy, unsigned char dy
 	int yy = vy;
 	int locx = PlayerLocation[pId][0];
 	int locy = PlayerLocation[pId][1];
-	if (vx != 0x00) {
+
+	PlayerLocation[pId][0] += xx;
+	PlayerLocation[pId][1] += yy;
+	/*if (vx != 0x00) {
 		if (vx > 0) {
 			if (map[locx+1][locy] == 0x00) {
 				PlayerLocation[pId][0] += 1;
@@ -260,7 +263,7 @@ void processMovement(int new_socket, int pId, char vx, char vy, unsigned char dy
 	else PlayerLocation[pId][2] = 0;
 	if (dynPut == 1) {
 
-	}
+	}*/
 
 	packetOut_playerLocation(new_socket, 1);
 
