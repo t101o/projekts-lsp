@@ -85,7 +85,29 @@ void packetIn_identifyMovement(int new_socket) {
 
 }
 
-void packetOut_playerLocation(int new_socket, int playerId) {
+void packetOut_playerLocation(int new_socket, int playerId, int first) {
+	/*
+	if (firstr == 1) {
+		if (playerId == 1) {
+			player1->position.x = TILE_WIDTH;
+			player1->position.y = TILE_HEIGHT;
+		} else if (playerId == 2) {
+			player1->position.x = SCREEN_WIDTH - TILE_WIDTH;
+			player1->position.y = TILE_HEIGHT;
+		} else if (playerId == 3) {
+			player1->position.x = SCREEN_WIDTH - TILE_WIDTH;
+			player1->position.y = SCREEN_HEIGHT - TILE_HEIGHT;
+		} else if (playerId == 4) {
+			player1->position.x = TILE_WIDTH;
+			player1->position.y = SCREEN_HEIGHT - TILE_HEIGHT;
+		}
+	}
+	else {
+
+	}*/
+
+
+
 	char buff[1024] = {0};
 	struct packet_moveable_obj_update pmou;
 	pmou.start = 0xff00;
@@ -265,7 +287,7 @@ void processMovement(int new_socket, int pId, char vx, char vy, unsigned char dy
 
 	}*/
 
-	packetOut_playerLocation(new_socket, 1);
+	packetOut_playerLocation(new_socket, 1, 0);
 
 
 }
