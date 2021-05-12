@@ -3,10 +3,6 @@
  *
  ***/
 
-/*
-  TODO: Ping packet implementation
-*/
-
 #define FIELD_HEIGHT 13
 #define FIELD_WIDTH 15
 
@@ -18,75 +14,6 @@ unsigned char checksum(unsigned char *packet, size_t size) {
 
   return checksum;
 }
-
-unsigned char *packet_encode(unsigned char *packet, size_t size) {
-  unsigned char checksum = 0x00;
-  unsigned char *packet_encoded = (unsigned char *) malloc(sizeof(unsigned char) * 2 * size);
-  if (packet_encoded == NULL) {
-    perror("*ERROR*");
-    exit(EXIT_FAILURE);
-  }
-
-  memset(packet_encoded, 0, sizeof(char) * 2 * size);
-  /* start of packet */
-  packet_encoded[0] = packet[0];
-  packet_encoded[1] = packet[1];
-  
-  checksum ^= packet_encoded[0];
-  checksum ^= packet_encoded[1];
-  
-  int j = 2;
-  for (int i = 2; i < size; ++i) {
-    if (packet[i] == 0xff) {
-      packet_encoded[j] = 0xff;
-      packet_encoded[j+1] = 0xff;
-      checksum ^= packet_encoded[j];
-      checksum ^= packet_encoded[j];
-      j += 2;
-    } else {
-      packet_encoded[j] = packet[i];
-      checksum ^= packet_encoded[j];
-      j += 1;
-    }
-  }
-  packet_encoded[j] = checksum;
-
-  return packet_encoded;
-}
-
-
-/* Size is obtainable from read syscall */
-/* If error occurs then NULL is returned */
-unsigned char *packet_decode(unsigned char *packet, size_t size) {
-  /* Invalid packet */
-  if (size < 3 || (packet[0] != 0xff && packet[1] != 0x00)) {
-    return NULL;
-  }
-
-  unsigned char *packet_decoded = (unsigned char *) malloc(sizeof(unsigned char) * size); 
-  /* Start decoding */
-  int j = 0;
-  for (int i = 0; i < size-1; ++i) {
-    if (packet[i] == 0xff && packet[i+1] == 0xff) {
-      packet_decoded[j] = 0xff;
-      i++;
-    } else if (packet[i] == 0xff && packet[i+1] != 0xff) {
-      return NULL;
-    } else {
-      packet_decoded[j] = packet[i];
-    }
-    j++;
-  }
-
-  /* Checksums do not match */
-  if (packet_decoded[j-1] != checksum(packet_decoded, j)) {
-    return NULL;
-  }
-
-  return packet_decoded;
-}
-
-
 
 /* Client->Server packets */
 /* Player identification packet
@@ -229,7 +156,10 @@ union packet_player_info_union {
   unsigned char arr[sizeof(struct packet_player_info)];
   struct packet_player_info pack;
 };
-  
+
+/* Ping packet
+   packet_id 0x85
+*/
 struct packet_ping {
   unsigned short start;
   unsigned char type;
@@ -240,25 +170,3 @@ union packet_ping_union {
   unsigned char arr[sizeof(struct packet_ping)];
   struct packet_ping pack;
 };
-/*
-unsigned char *encode_packet_ping(unsigned char *buff,
-				  struct packet_ping *pack) {
-  buff[0] = (unsigned char) (pack->start);
-  printf("encoding %u\n", buff[0]);
-  buff[1] = (unsigned char) (pack->start);
-  buff[2] = pack->type;
-  buff[3] = (unsigned char) pack->checksum;
-
-  return buff + 4;
-}
-
-unsigned char *decode_packet_ping(unsigned char *buff,
-				  struct packet_ping *pack) {
-  pack->start = (unsigned short) (buff[0] << 2);
-  pack->start = (unsigned short) (pack->start | buff[1]);
-  pack->type = buff[2];
-  pack->checksum = (char) buff[3];
-
-  return NULL;
-}
-*/
