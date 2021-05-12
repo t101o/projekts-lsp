@@ -26,17 +26,16 @@ struct player {
 };
 
 struct bomb {
-  Rectangle rectangle;
   Vector2 position;
   unsigned char status;
 };
 
+int input = 0;
 
 
 /* packets which are being sent */
 union packet_player_id_union p_id;
 union packet_player_input_union player1_input;
-
 union packet_client_chat_msg_union ccm;
 
 /* packets which are being received */
@@ -56,7 +55,7 @@ struct bomb bombs[FIELD_HEIGHT * FIELD_WIDTH];
 char map[FIELD_HEIGHT * FIELD_WIDTH];
 int server_socket;
 
-void DrawMap(Texture2D textures, Rectangle floor, Rectangle wall, Rectangle box) {
+void DrawMap(Texture2D textures, Rectangle floor, Rectangle wall, Rectangle box, Rectangle fire) {
   Vector2 pos = {0, -TILE_HEIGHT};
   for (int i = 0; i < FIELD_WIDTH * FIELD_HEIGHT; ++i) {
 
@@ -71,6 +70,8 @@ void DrawMap(Texture2D textures, Rectangle floor, Rectangle wall, Rectangle box)
       DrawTextureRec(textures, wall, pos, WHITE);
     } else if (map[i] == 0x02) {
       DrawTextureRec(textures, box, pos, WHITE);
+    } else if (map[i] == 0x03) {
+      DrawTextureRec(textures, fire, pos, WHITE);
     }
     pos.x += TILE_WIDTH;
     //DrawTextureRec(textures, player1->rectangle, player1->position, WHITE);
@@ -78,97 +79,108 @@ void DrawMap(Texture2D textures, Rectangle floor, Rectangle wall, Rectangle box)
 }
 
 void *networking() {
+
+  unsigned char buff[1024];
+  p_id.pack.start = 0xff00;
+  p_id.pack.type = 0x00;
+  strcpy(p_id.pack.player_name, "Name");
+  p_id.pack.player_color = 0;
+  p_id.pack.checksum = 0; /* TODO */
+
+  write(server_socket, p_id.arr, sizeof(p_id));
+  
   // For testing purposes
   player1 = &players[0];
   while (1) {
     char msg[256];
-    unsigned char buff[1024];
-    //fgets(msg, 256, stdin);
-    /*   if (write(server_socket, "Hello, server!\n", strlen("Hello, server!\n")) == -1) {
-	perror("*ERROR*");
-	exit(EXIT_FAILURE);
-      }
-    */
-      int read_status;
-      read_status = read(server_socket, buff, 1024);
-      if (read_status == -1) {
-	perror("*ERROR*");
-	exit(EXIT_FAILURE);
-      } else if (read_status > 0) {
-	//printf("%u\n", buff[1]);
-	//if (buff[0] == 0xff && buff[1] == 0x00) {
-	if (buff[2] == 0x80) {
-	  memcpy(s_id.arr, buff, sizeof(s_id));
-	  if (s_id.pack.is_accepted > 0) {
-	    player1 = &players[s_id.pack.is_accepted-1];
-	  }
-	  /* move to server */
-	  /*if (s_id.pack.is_accepted == 1) {
-	    player1->position.x = TILE_WIDTH;
-	    player1->position.y = TILE_HEIGHT;
+    int read_status;
+    read_status = read(server_socket, buff, 1024);
+    if (read_status == -1) {
+      perror("*ERROR*");
+      exit(EXIT_FAILURE);
+    } else if (read_status > 0) {
+      //printf("%u\n", buff[1]);
+      //if (buff[0] == 0xff && buff[1] == 0x00) {
+      if (buff[2] == 0x80) {
+	memcpy(s_id.arr, buff, sizeof(s_id));
+	if (s_id.pack.is_accepted > 0) {
+	  printf("Player id %d\n", s_id.pack.is_accepted);
+	  player1 = &players[s_id.pack.is_accepted-1];
+	}
+	/* move to server */
+	/*if (s_id.pack.is_accepted == 1) {
+	  player1->position.x = TILE_WIDTH;
+	  player1->position.y = TILE_HEIGHT;
 	  } else if (s_id.pack.is_accepted == 2) {
-	    player1->position.x = SCREEN_WIDTH - TILE_WIDTH;
-	    player1->position.y = TILE_HEIGHT;
+	  player1->position.x = SCREEN_WIDTH - TILE_WIDTH;
+	  player1->position.y = TILE_HEIGHT;
 	  } else if (s_id.pack.is_accepted == 3) {
-	    player1->position.x = SCREEN_WIDTH - TILE_WIDTH;
-	    player1->position.y = SCREEN_HEIGHT - TILE_HEIGHT;
+	  player1->position.x = SCREEN_WIDTH - TILE_WIDTH;
+	  player1->position.y = SCREEN_HEIGHT - TILE_HEIGHT;
 	  } else if (s_id.pack.is_accepted == 4) {
-	    player1->position.x = TILE_WIDTH;
-	    player1->position.y = SCREEN_HEIGHT - TILE_HEIGHT;
+	  player1->position.x = TILE_WIDTH;
+	  player1->position.y = SCREEN_HEIGHT - TILE_HEIGHT;
 	  } */
-	} else if (buff[2] == 0x81) {
-	  memcpy(gfs.arr, buff, sizeof(gfs));
-	  sgfs = gfs.pack;
-	  /*  printf("Printing map\n");
-	  for (int i = 0; i < FIELD_HEIGHT * FIELD_WIDTH; ++i) {
+      } else if (buff[2] == 0x81) {
+	memcpy(gfs.arr, buff, sizeof(gfs));
+	sgfs = gfs.pack;
+	/*  printf("Printing map\n");
+	    for (int i = 0; i < FIELD_HEIGHT * FIELD_WIDTH; ++i) {
 	    printf("%x ", sgfs.block_id[i]);
 	    if (i != 0 && i % (FIELD_WIDTH-1) == 0) {
-	      printf("\n");
+	    printf("\n");
 	    }
 	    }*/
-	  /* Check checksum */
-	  memcpy(map, gfs.pack.block_id, FIELD_HEIGHT * FIELD_WIDTH);
-	} else if (buff[2] == 0x82) {
-	  memcpy(mou.arr, buff, sizeof(mou));
-	  /* player */
-	  if (mou.pack.obj_type == 0x00) {
-	   
-	    players[mou.pack.obj_id - 1].position.x = mou.pack.x;
-	    players[mou.pack.obj_id - 1].position.y = mou.pack.y;
-	    players[mou.pack.obj_id - 1].direction = mou.pack.direction;
-	    players[mou.pack.obj_id - 1].status = mou.pack.status;
+	/* Check checksum */
+	memcpy(map, gfs.pack.block_id, FIELD_HEIGHT * FIELD_WIDTH);
+      } else if (buff[2] == 0x82) {
+	memcpy(mou.arr, buff, sizeof(mou));
+	/* player */
+	printf("IN\n");
+	if (mou.pack.obj_type == 0x00) {
+	  printf("PLAYERS %x\n", mou.pack.obj_id);
+	  players[mou.pack.obj_id - 1].position.x = mou.pack.x;
+	  players[mou.pack.obj_id - 1].position.y = mou.pack.y;
+	  players[mou.pack.obj_id - 1].direction = mou.pack.direction;
+	  players[mou.pack.obj_id - 1].status = mou.pack.status;
+
+	  //printf("%d %d ");
+	  /* bomb */
+	} else if (mou.pack.obj_type == 0x01) {
 	    
-	    /* bomb */
-	  } else if (mou.pack.obj_type == 0x01) {
+	}
+	/* Moveable objects */
+      } else if (buff[2] == 0x83) {
+	memcpy(scm.arr, buff, sizeof(scm));
+	struct packet_server_chat_msg sscm;
+	sscm = scm.pack;
+	printf("%s\n", sscm.msg);
+      } else if (buff[2] == 0x84) {
+	memcpy(pi.arr, buff, sizeof(pi));
+	/* Player info */
+      }else if (buff[2] == 0x85) {
 	    
-	  }
-	  /* Moveable objects */
-	} else if (buff[2] == 0x83) {
-	  memcpy(scm.arr, buff, sizeof(scm));
-	  struct packet_server_chat_msg sscm;
-	  sscm = scm.pack;
-	  printf("%s\n", sscm.msg);
-	} else if (buff[2] == 0x84) {
-	  memcpy(pi.arr, buff, sizeof(pi));
-	  /* Player info */
-	}else if (buff[2] == 0x85) {
-	    
-	    struct packet_ping ping;
-	    memcpy(p.arr, buff, sizeof(p));
-	    ping = p.pack;
-	    //ping.type = ntohs(ping.type);
-	    //decode_packet_ping(buff, &ping);
-	    printf("PING %x %x %x!\n", ping.start, ping.type, p.arr[3]);
-	    memset(buff, 0, 1024);
-	    //unsigned char *temp = encode_packet_ping(buff, &ping);
-	    write(server_socket, p.arr, sizeof(p));
-	  }
-	
-	// }
+	struct packet_ping ping;
+	memcpy(p.arr, buff, sizeof(p));
+	ping = p.pack;
+	//ping.type = ntohs(ping.type);
+	//decode_packet_ping(buff, &ping);
+	printf("PING %x %x %x!\n", ping.start, ping.type, p.arr[3]);
+	memset(buff, 0, 1024);
+	//unsigned char *temp = encode_packet_ping(buff, &ping);
+	write(server_socket, p.arr, sizeof(p));
       }
-      memset(buff, 0, 1024);
+	
+      // }
+    }
+    memset(buff, 0, 1024);
+    if (input) {
+      printf("Sending...\n");
       write(server_socket, player1_input.arr, sizeof(player1_input));
-      //      sleep(1);
+      input = 0;
+      printf("Sent!\n");
+    }
+    //      sleep(1);
   }
 
 }
@@ -184,15 +196,17 @@ void *game() {
   Rectangle wall = {10 * tile_width, 5 * tile_height, tile_width, tile_height};
   Rectangle box = {9 * tile_width, 0, tile_width, tile_height};
   Rectangle bomb = {4 * tile_width, 5 * tile_height, tile_width, tile_height};
+  Rectangle fire = {14 * tile_width, 5 * tile_height, tile_width, tile_height};
   
   /* temp Player data */
-  player1->position.x = 32;
-  player1->position.y = 32;
-  player1->rectangle.x = 0.0f;
-  player1->rectangle.y = tile_height;
-  player1->rectangle.width = tile_width;
-  player1->rectangle.height = tile_height;
-  player1->velocity = 1;
+  players[0].position.x = 32;
+  players[0].position.y = 32;
+  players[0].rectangle.x = 0.0f;
+  players[0].rectangle.y = tile_height;
+  players[0].rectangle.width = tile_width;
+  players[0].rectangle.height = tile_height;
+  players[0].velocity = 1;
+  players[0].status = 1;
   
   players[1].position.x = SCREEN_WIDTH - tile_width;
   players[1].position.y = 0.0f;
@@ -200,21 +214,23 @@ void *game() {
   players[1].rectangle.y = tile_height * 2;
   players[1].rectangle.width = tile_width;
   players[1].rectangle.height = tile_height;
-
+  players[1].status = 1;
+  
   players[2].rectangle.x = 0.0f;
   players[2].rectangle.y = tile_height * 3;
   players[2].rectangle.width = tile_width;
   players[2].rectangle.height = tile_height;
   players[2].position.x = 40.0f;
   players[2].position.y = 40.0f;
-
+  players[2].status = 1;
+  
   players[3].rectangle.x = 0.0f;
   players[3].rectangle.y = tile_height * 4;
   players[3].rectangle.width = tile_width;
   players[3].rectangle.height = tile_height;
   players[3].position.x = 100.0f;
   players[3].position.y = 100.0f;
-
+  players[3].status = 1;
 
   
   /*
@@ -241,7 +257,7 @@ void *game() {
       }
       }*/
 
-
+    /*
     for (int i = 0; i < FIELD_WIDTH * FIELD_HEIGHT; ++i) {
       
       if (i % (FIELD_WIDTH) == 0) {
@@ -250,6 +266,7 @@ void *game() {
       printf("%x ", map[i]);
     }
     printf("\n");
+    */
     /* Packet reveiving */
     /* Some packet sending */
     
@@ -257,7 +274,9 @@ void *game() {
     
     if (IsKeyDown(KEY_RIGHT)) {
       player1_input.pack.velocity_x = player1->velocity;
+      player1_input.pack.velocity_y = 0;
       //player1->position.x += 2.0f;
+      input = 1;
       player1->rectangle.x = tile_width * 4;
       if (player1->rectangle.width < 0) {
 	player1->rectangle.width *= -1;
@@ -266,27 +285,35 @@ void *game() {
     } else if (IsKeyDown(KEY_LEFT)) {
       player1_input.pack.velocity_x = -player1->velocity;
       //player1->position.x -= 2.0f;
+      player1_input.pack.velocity_y = 0;
+      input = 1;
       player1->rectangle.x = tile_width * 4;
       if (player1->rectangle.width > 0) {
 	player1->rectangle.width *= -1;
       }
     } else if (IsKeyDown(KEY_UP)) {
       player1_input.pack.velocity_y = -player1->velocity;
+      player1_input.pack.velocity_x = 0;
       //player1->position.y -= 2.0f;
+      input = 1;
       player1->rectangle.x = 0;
     } else if (IsKeyDown(KEY_DOWN)) {
       player1_input.pack.velocity_y = player1->velocity;
+      player1_input.pack.velocity_x = 0;
+      input = 1;
       //player1->position.y += 2.0f;
       player1->rectangle.x = tile_width;
     }
     
     if (IsKeyPressed(KEY_SPACE)) {
       player1_input.pack.dynamite_put = 1;
+      input = 1;
     }
+    
     BeginDrawing();
     ClearBackground(RAYWHITE);
     /* Draw map */
-    DrawMap(textures, floor, wall, box);
+    DrawMap(textures, floor, wall, box, fire);
     /*   Vector2 pos = {0, 0};
   for (int i = 0; i < FIELD_WIDTH * FIELD_HEIGHT; ++i) {
 
@@ -315,7 +342,9 @@ void *game() {
 
     /* Draw players */
     for (int i = 0; i < 4; ++i) {
-      DrawTextureRec(textures, players[i].rectangle, players[i].position, WHITE);
+      if (players[i].status > 0) {
+	DrawTextureRec(textures, players[i].rectangle, players[i].position, WHITE);
+      }
     }
     EndDrawing();
   }
@@ -353,12 +382,9 @@ int main(int argc, char **argv) {
   fprintf(stdout, "Connection successful with: %s:%d\n", address, PORT);
   
   struct bomb empty;
-  empty.rectangle.x = 0;
-  empty.rectangle.y = 0;
-  empty.rectangle.width = TILE_WIDTH;
-  empty.rectangle.height = TILE_HEIGHT;
   empty.position.x = -1.0f;
   empty.position.y = -1.0f;
+  empty.status = 0;
 
   for (int i = 0; i < FIELD_WIDTH * FIELD_HEIGHT; ++i) {
     bombs[i] = empty;
